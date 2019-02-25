@@ -62,7 +62,11 @@ class Parser:
 
     def run(code):
         Parser.tokens = Tokenizer(code)
-        print(Parser.parseExpression())
+        res = Parser.parseExpression()
+        if Parser.tokens.actual.type_t == 'EOF':
+            return res
+        else:
+            raise Exception('espaço inesperado')
 
 
 # print('running: 1+2')
