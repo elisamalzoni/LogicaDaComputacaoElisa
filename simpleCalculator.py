@@ -1,29 +1,75 @@
-dici = {'n':[], 'op': []}
+class Token:
+    def __init__(self, type_t, value):
+        self.type_t = type_t
+        self.value = value
 
-string_conta = input('Digite a conta: ')
+class Tokenizer:
+    def __init__(self, origin):
+        self.origin = origin
+        self.position = 0
+        self.actual = self.selectNext()
 
-resultado = 0
-numero = ''
-
-for c, caracter in enumerate(string_conta):
-    if caracter != ' ':
-        if caracter in ['+', '-']:
-            if c != 0:
-                dici['n'].append(numero)
-            dici['op'].append(caracter)
-            numero = ''
+    def selectNext(self):
+        num = ''
+        while self.position < len(self.origin) and self.origin[self.position]==' ':
+            self.position += 1
+        if self.position == len(self.origin):
+            self.actual = Token('EOF', 'e')
+        elif self.origin[self.position].isdigit():
+            while self.position < len(self.origin) and self.origin[self.position].isdigit():
+                num = num + self.origin[self.position]
+                self.position += 1
+            self.actual = Token('INT', num)
+        elif self.position < len(self.origin) and self.origin[self.position] == '-':
+            self.actual = Token('MINUS', '-')
+            self.position += 1
+        elif self.position < len(self.origin) and self.origin[self.position] == '+':
+            self.actual = Token('PLUS', '+')
+            self.position += 1
         else:
-            numero = numero+caracter
+            raise Exception('caracter invalido')
+        return self.actual
+class Parser:
+
+    def parseExpression():
+        resultado = 0
+        if Parser.tokens.actual.type_t == 'INT':
+            resultado = int(Parser.tokens.actual.value)
+
+            Parser.tokens.selectNext()
+            while Parser.tokens.actual.type_t == 'MINUS' or Parser.tokens.actual.type_t == 'PLUS':
+                if Parser.tokens.actual.type_t == 'PLUS':
+                    Parser.tokens.selectNext()
+                    if Parser.tokens.actual.type_t == 'INT':
+                        resultado += int(Parser.tokens.actual.value)
+                    else:
+                        raise Exception('ordem invalida')
+                
+                elif Parser.tokens.actual.type_t == 'MINUS':
+                    Parser.tokens.selectNext()
+                    if Parser.tokens.actual.type_t == 'INT':
+                        resultado -= int(Parser.tokens.actual.value)
+                    else:
+                        raise Exception('ordem invalida')
+                Parser.tokens.selectNext()
         
-        if c == (len(string_conta)-1):
-            dici['n'].append(numero)
+        # senao erro? ?????????
+        # raise Exception('ordem invalida')
 
-if len(dici['n']) != len(dici['op']):
-    dici['op'].insert(0, '+')
+        return resultado
 
-for i, num in enumerate(dici['n']):
-    sinal = dici['op'][i]
-    numsinal = int(sinal+num)
-    print(numsinal)
-    resultado += numsinal
-print('resultado: ', resultado)
+
+
+    def run(code):
+        Parser.tokens = Tokenizer(code)
+        print(Parser.parseExpression())
+
+
+print('running: 1+2')
+Parser.run('1+2')
+print('running: 1+2-3')
+Parser.run('1+2-3')
+print('running: 11+22-33')
+Parser.run('11+22-33')
+print('running: 789   +345  -   123')
+Parser.run('789   +345  -   123')
