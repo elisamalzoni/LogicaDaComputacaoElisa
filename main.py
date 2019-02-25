@@ -65,11 +65,14 @@ class Parser:
         print(Parser.parseExpression())
 
 
-print('running: 1+2')
-Parser.run('1+2')
-print('running: 1+2-3')
-Parser.run('1+2-3')
-print('running: 11+22-33')
-Parser.run('11+22-33')
-print('running: 789   +345  -   123')
-Parser.run('789   +345  -   123')
+# print('running: 1+2')
+# Parser.run('1+2')
+# print('running: 1+2-3')
+# Parser.run('1+2-3')
+# print('running: 11+22-33')
+# Parser.run('11+22-33')
+# print('running: 789   +345  -   123')
+# Parser.run('789   +345  -   123')
+
+exp = input('digite a expressão: ')
+Parser.run(exp)
