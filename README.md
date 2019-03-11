@@ -3,4 +3,5 @@ Elisa Malzoni
 Logica da Computação - 2019.1
 
 ## DS
-![ds v0.1](DS-v1.0.jpg)
+![ds](ds-v1.1_1.jpg)
+![ebnf](ds-v1.1_2.jpg)

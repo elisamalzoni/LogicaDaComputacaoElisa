@@ -12,7 +12,7 @@ class Tokenizer:
 
     def selectNext(self):
         num = ''
-        while self.position < len(self.origin) and self.origin[self.position]==' ':
+        while self.position < len(self.origin) and (self.origin[self.position]==' ' or self.origin[self.position]=='\n'):
             self.position += 1
         if self.position == len(self.origin):
             self.actual = Token('EOF', 'e')
@@ -39,8 +39,8 @@ class Tokenizer:
 
 class PrePro:
     def filter(code):
-        filtered_code = re.sub("'.*\n", '', code)
-        print(filtered_code)
+        filtered_code = re.sub("'.*\n", "", code)
+        # print(filtered_code)
         return filtered_code
 
 class Parser:
@@ -92,15 +92,10 @@ class Parser:
             raise Exception('nao chegou no EOF')
 
 
-# print('running: 1+2')
-# print(Parser.run('1+2'))
-# print('running: 3-2')
-# print(Parser.run('3-2'))
-# print('running: 11+22-33')
-# print(Parser.run('11+22-33'))
-# print('running: 4/2+3')
-# print(Parser.run('4/2+3'))
-
 exp = input('digite a expressão: ') + "\n"
-exp = exp.replace("\\n","\n")
+
+# f = open('input.txt', 'r') 
+# exp = f.read() 
+# print(exp)
+
 print(Parser.run(exp))
