@@ -33,6 +33,12 @@ class Tokenizer:
         elif self.position < len(self.origin) and self.origin[self.position] == '/':
             self.actual = Token('DIV', '/')
             self.position += 1
+        elif self.position < len(self.origin) and self.origin[self.position] == '(':
+            self.actual = Token('OP', '(')
+            self.position += 1
+        elif self.position < len(self.origin) and self.origin[self.position] == ')':
+            self.actual = Token('CP', ')')
+            self.position += 1
         else:
             raise Exception('caracter invalido')
         return self.actual
@@ -44,30 +50,45 @@ class PrePro:
         return filtered_code
 
 class Parser:
-    def parseTerm():
+    def parseFactor():
         resultado = 0
         if Parser.tokens.actual.type_t == 'INT':
             resultado = int(Parser.tokens.actual.value)
-
             Parser.tokens.selectNext()
-            while Parser.tokens.actual.type_t == 'DIV' or Parser.tokens.actual.type_t == 'MULT':
-                if Parser.tokens.actual.type_t == 'MULT':
-                    Parser.tokens.selectNext()
-                    if Parser.tokens.actual.type_t == 'INT':
-                        resultado *= int(Parser.tokens.actual.value)
-                    else:
-                        raise Exception('erro ao multiplicar')
-                
-                elif Parser.tokens.actual.type_t == 'DIV':
-                    Parser.tokens.selectNext()
-                    if Parser.tokens.actual.type_t == 'INT':
-                        resultado = resultado // int(Parser.tokens.actual.value)
-                    else:
-                        raise Exception('erro ao dividir')
+        elif Parser.tokens.actual.type_t == 'OP':
+            Parser.tokens.selectNext()
+            resultado = Parser.parseExpression()
+            if Parser.tokens.actual.type_t == 'CP':
                 Parser.tokens.selectNext()
+            else:
+                raise Exception('Nao fechou parenteses')
+        
+        elif Parser.tokens.actual.type_t == 'PLUS':
+            Parser.tokens.selectNext()
+            resultado += Parser.parseFactor()
+
+        elif Parser.tokens.actual.type_t == 'MINUS':
+            Parser.tokens.selectNext()
+            resultado -= Parser.parseFactor()
+
         else:
-            raise Exception('esperando inteiro')
+            raise Exception('token invalido')
+
         return resultado
+
+    def parseTerm():
+        factor = Parser.parseFactor()
+        resultado = factor
+        while Parser.tokens.actual.type_t == 'DIV' or Parser.tokens.actual.type_t == 'MULT':
+            if Parser.tokens.actual.type_t == 'MULT':
+                Parser.tokens.selectNext()
+                resultado = resultado * int(Parser.parseFactor())
+
+            elif Parser.tokens.actual.type_t == 'DIV':
+                Parser.tokens.selectNext()
+                resultado = resultado // int(Parser.parseFactor())
+        return resultado
+
 
     def parseExpression():
         term = Parser.parseTerm()
