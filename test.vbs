@@ -13,4 +13,3 @@ end if
 if 3>2 then
     print 20000
 end if
-

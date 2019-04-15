@@ -1,6 +1,8 @@
 import re
-reserved = ['PRINT', 'END', 'BEGIN']
-PRINT, END, BEGIN = reserved
+import sys
+
+reserved = ['PRINT', 'END', 'BEGIN', 'NOT', 'AND', 'OR', 'WHILE', 'WEND', 'IF', 'THEN', 'ELSE', 'INPUT']
+PRINT, END, BEGIN, NOT, AND, OR, WHILE, WEND, IF, THEN, ELSE , INPUT= reserved
 
 class SymbolTable():
     def __init__(self):
@@ -41,6 +43,22 @@ class BinOp(Node):
         elif self.value == '/':
             return self.children[0].Evaluate(st) // self.children[1].Evaluate(st)
 
+        elif self.value == '<':
+            return self.children[0].Evaluate(st) < self.children[1].Evaluate(st)
+        
+        elif self.value == '>':
+            return self.children[0].Evaluate(st) > self.children[1].Evaluate(st)
+
+        elif self.value == '=':
+            return self.children[0].Evaluate(st) == self.children[1].Evaluate(st)
+
+        elif self.value == 'OR':
+            return self.children[0].Evaluate(st) or self.children[1].Evaluate(st)
+
+        elif self.value == 'AND':
+            return self.children[0].Evaluate(st) and self.children[1].Evaluate(st)
+
+
 class UnOp(Node):
     def __init__(self, value, children):
         self.value = value
@@ -53,6 +71,10 @@ class UnOp(Node):
         elif self.value == '+':
             return self.children[0].Evaluate(st)
 
+        elif self.value == 'NOT':
+            return not(self.children[0].Evaluate(st))  
+
+
 class IntVal(Node):
     def __init__(self, value, children):
         self.value = value
@@ -61,7 +83,7 @@ class IntVal(Node):
     def Evaluate(self, st):
         return self.value
 
-class IdentifierOp(Node):
+class IdentifierNode(Node):
     def __init__(self, value, children):
         self.value = value
         self.children = children
@@ -69,7 +91,7 @@ class IdentifierOp(Node):
     def Evaluate(self, st):
         return st.getVariable(self.value)
 
-class AssigmentOp(Node):
+class AssignmentNode(Node):
     def __init__(self, value, children):
         self.value = value
         self.children = children
@@ -77,7 +99,7 @@ class AssigmentOp(Node):
     def Evaluate(self, st):
         st.setVariable(self.children[0].value, self.children[1].Evaluate(st))
 
-class StatementsOp(Node):
+class StatementsNode(Node):
     def __init__(self, value, children):
         self.value = value
         self.children = children
@@ -86,13 +108,41 @@ class StatementsOp(Node):
         for child in self.children:
             child.Evaluate(st)
 
-class PrintOp(Node):
+class PrintNode(Node):
     def __init__(self, value, children):
         self.value = value
         self.children = children
 
     def Evaluate(self, st):
         print(self.children[0].Evaluate(st))
+
+class WhileNode(Node):
+    def __init__(self, value, children):
+        self.value = value
+        self.children = children
+
+    def Evaluate(self, st):
+        while self.children[0].Evaluate(st):
+            self.children[1].Evaluate(st)
+ 
+class IfNode(Node):
+    def __init__(self, value, children):
+        self.value = value
+        self.children = children
+
+    def Evaluate(self, st):
+        if self.children[0].Evaluate(st):
+            self.children[1].Evaluate(st)
+        elif len(self.children) == 3:
+            self.children[2].Evaluate(st)
+
+class InputNode(Node):
+    def __init__(self, value, children):
+        self.value = value
+        self.children = children
+
+    def Evaluate(self, st):
+        return int(input())
 
 class NoOp(Node):
     def __init__(self, value, children):
@@ -146,6 +196,12 @@ class Tokenizer:
         elif self.position < len(self.origin) and self.origin[self.position] == '=':
             self.actual = Token('ASSIGNMENT', '=')
             self.position += 1
+        elif self.position < len(self.origin) and self.origin[self.position] == '<':
+            self.actual = Token('LESS', '<')
+            self.position += 1
+        elif self.position < len(self.origin) and self.origin[self.position] == '>':
+            self.actual = Token('GREATER', '>')
+            self.position += 1
         elif self.origin[self.position] == '\n':
             self.actual = Token('LB', '\n')
             self.position += 1
@@ -180,7 +236,7 @@ class Parser:
             Parser.tokens.selectNext()
 
         elif Parser.tokens.actual.type_t == 'IDENTIFIER':
-            node = IdentifierOp(Parser.tokens.actual.value, [])
+            node = IdentifierNode(Parser.tokens.actual.value, [])
             Parser.tokens.selectNext()
 
         elif Parser.tokens.actual.type_t == 'OP':
@@ -199,14 +255,43 @@ class Parser:
             Parser.tokens.selectNext()
             node = UnOp("-",[Parser.parseFactor()])
 
+        elif Parser.tokens.actual.type_t == 'NOT':
+            Parser.tokens.selectNext()
+            node = UnOp("NOT",[Parser.parseFactor()])
+
+        elif Parser.tokens.actual.type_t == 'INPUT':
+            Parser.tokens.selectNext()
+            node = InputNode("",[])
+
         else:
             raise Exception('token invalido')
 
         return node
+    
+    def parseRelExpression():
+        node = Parser.parseExpression()
+        if Parser.tokens.actual.type_t == 'LESS':
+            Parser.tokens.selectNext()
+            node = BinOp('<', [node, Parser.parseExpression()])
+
+        elif Parser.tokens.actual.type_t == 'GREATER':
+            Parser.tokens.selectNext()
+            node = BinOp('>', [node, Parser.parseExpression()])
+        
+        elif Parser.tokens.actual.type_t == 'ASSIGNMENT':
+            Parser.tokens.selectNext()
+            node = BinOp('=', [node, Parser.parseExpression()])
+
+        else:
+            raise Exception('relexp invalida')
+
+        return node
+
+
 
     def parseTerm():
         node = Parser.parseFactor()
-        while Parser.tokens.actual.type_t == 'DIV' or Parser.tokens.actual.type_t == 'MULT':
+        while Parser.tokens.actual.type_t == 'DIV' or Parser.tokens.actual.type_t == 'MULT' or Parser.tokens.actual.type_t == 'AND':
             if Parser.tokens.actual.type_t == 'MULT':
                 Parser.tokens.selectNext()
                 node = BinOp('*', [node, Parser.parseFactor()])
@@ -214,12 +299,17 @@ class Parser:
             elif Parser.tokens.actual.type_t == 'DIV':
                 Parser.tokens.selectNext()
                 node = BinOp('/', [node, Parser.parseFactor()])
+
+            elif Parser.tokens.actual.type_t == 'AND':
+                Parser.tokens.selectNext()
+                node = BinOp('AND', [node, Parser.parseFactor()])
+
         return node
 
 
     def parseExpression():
         node = Parser.parseTerm()
-        while Parser.tokens.actual.type_t == 'MINUS' or Parser.tokens.actual.type_t == 'PLUS':
+        while Parser.tokens.actual.type_t == 'MINUS' or Parser.tokens.actual.type_t == 'PLUS' or Parser.tokens.actual.type_t == 'OR':
             if Parser.tokens.actual.type_t == 'PLUS':
                 Parser.tokens.selectNext()
                 node = BinOp('+', [node, Parser.parseTerm()])
@@ -227,51 +317,85 @@ class Parser:
             elif Parser.tokens.actual.type_t == 'MINUS':
                 Parser.tokens.selectNext()
                 node = BinOp('-', [node, Parser.parseTerm()])
+            
+            elif Parser.tokens.actual.type_t == 'OR':
+                Parser.tokens.selectNext()
+                node = BinOp('OR', [node, Parser.parseTerm()])
+
         return node
 
     def parseStatement():
         if Parser.tokens.actual.type_t == 'IDENTIFIER':
-            variable_name = IdentifierOp(Parser.tokens.actual.value,[])
+            variable_name = IdentifierNode(Parser.tokens.actual.value,[])
             Parser.tokens.selectNext()
             if Parser.tokens.actual.type_t == 'ASSIGNMENT':
                 Parser.tokens.selectNext()
                 variable_value = Parser.parseExpression()
-                node = AssigmentOp("=",[variable_name, variable_value])
+                node = AssignmentNode("=",[variable_name, variable_value])
+
         elif Parser.tokens.actual.type_t == 'PRINT':
             Parser.tokens.selectNext()
-            node = PrintOp('PRINT', [Parser.parseExpression()])
-        elif Parser.tokens.actual.type_t == 'BEGIN':
-            node = Parser.parseStatements()
-            # Parser.tokens.selectNext()
+            node = PrintNode('PRINT', [Parser.parseExpression()])
+
+        elif Parser.tokens.actual.type_t == 'WHILE':
+            Parser.tokens.selectNext()
+            node = WhileNode('WHILE', [Parser.parseRelExpression()])
+
+            if Parser.tokens.actual.type_t == 'LB':
+                Parser.tokens.selectNext()
+                node.children.append(Parser.parseStatements())
+
+                if Parser.tokens.actual.type_t == 'WEND':
+                    Parser.tokens.selectNext()
+                else:
+                    raise Exception('nao existe wend')
+            else:
+                raise Exception('sem LB depois do WHILE')  
+
+        elif Parser.tokens.actual.type_t == 'IF':
+            Parser.tokens.selectNext()
+            node = IfNode('IF', [Parser.parseRelExpression()])
+            if Parser.tokens.actual.type_t == 'THEN':
+                Parser.tokens.selectNext()
+                if Parser.tokens.actual.type_t == 'LB':
+                    Parser.tokens.selectNext()
+                    node.children.append(Parser.parseStatements())
+
+                    if Parser.tokens.actual.type_t == 'ELSE':
+                        Parser.tokens.selectNext()
+                        if Parser.tokens.actual.type_t == 'LB':
+                            Parser.tokens.selectNext()
+                            node.children.append(Parser.parseStatements())
+                        else:
+                            raise Exception('sem LB depois do ELSE')
+                    
+                    if Parser.tokens.actual.type_t == 'END':
+                        Parser.tokens.selectNext()
+
+                        if Parser.tokens.actual.type_t == 'IF':
+                            Parser.tokens.selectNext()
+                        else:
+                            raise Exception('falta IF em END IF')
+                    else:
+                        raise Exception('sem END do IF')
+                else:
+                    raise Exception('sem LB depois do THEN')
+            else:
+                raise Exception('falta THEN')
         else:
             node = NoOp(None, [])
 
         return node
         
     def parseStatements():
-        node = StatementsOp('',[])
-        if Parser.tokens.actual.type_t == 'BEGIN':
+
+        filhosstatements = [Parser.parseStatement()]
+
+        while (Parser.tokens.actual.type_t == 'LB'):
             Parser.tokens.selectNext()
-            if Parser.tokens.actual.type_t == 'LB':
-                Parser.tokens.selectNext()
-                while Parser.tokens.actual.type_t != 'END': 
-                    node.children.append(Parser.parseStatement())
-                    if Parser.tokens.actual.type_t == 'LB':
-                        Parser.tokens.selectNext()
-                    else:
-                        raise Exception('faltou LB')
-                if Parser.tokens.actual.type_t == 'END':
-                    Parser.tokens.selectNext()
-                    # while Parser.tokens.actual.type_t == 'LB':
-                    #     Parser.tokens.selectNext()
-                else:
-                    raise Exception('faltou END')
-            else:
-                raise Exception('esperando LB do begin')
-            
-        else:
-            raise Exception('sem BEGIN')
-        return node
+            filhosstatements.append(Parser.parseStatement())
+
+        return StatementsNode('', filhosstatements)
             
 
     def run(code):
@@ -286,9 +410,9 @@ class Parser:
             raise Exception('nao chegou no EOF')
 
 
-# exp = input('digite a expressão: ') + "\n"
+# $ python3 main.py test.vbs
 
-with open('input.vbs', 'r') as f:
+with open(sys.argv[1], 'r') as f:
     exp = f.read() + '\n'
 
 print(exp)
