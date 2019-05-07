@@ -1,21 +1,32 @@
 import re
 import sys
 
-reserved = ['PRINT', 'END', 'BEGIN', 'NOT', 'AND', 'OR', 'WHILE', 'WEND', 'IF', 'THEN', 'ELSE', 'INPUT']
-PRINT, END, BEGIN, NOT, AND, OR, WHILE, WEND, IF, THEN, ELSE , INPUT= reserved
+reserved = ['PRINT', 'END', 'BEGIN', 'NOT', 'AND', 'OR', 'WHILE', 'WEND', 'IF', 'THEN', 'ELSE', 'INPUT', 'MAIN', 'DIM', 'AS', 'INTEGER', 'BOOLEAN', 'SUB', 'TRUE', 'FALSE']
+PRINT, END, BEGIN, NOT, AND, OR, WHILE, WEND, IF, THEN, ELSE , INPUT, MAIN, DIM, AS, INTEGER, BOOLEAN, SUB , TRUE, FALSE= reserved
 
 class SymbolTable():
     def __init__(self):
         self.table = {}
+    
+    def declareVariable(self, variable_name, variable_type):
+        self.table[variable_name] = [None, variable_type]
 
     def setVariable(self, variable_name, variable_value):
-        self.table[variable_name] = variable_value
+        if variable_name in self.table:
+            if self.table[variable_name][1] == variable_value[1]:
+                self.table[variable_name][0] = [variable_value]
+            else:
+                raise Exception('tipo declarado e tipo setado são diferentes')
+        else:
+            raise Exception('Variavel nao pode ser setada, nao declarada')
 
     def getVariable(self, variable_name):
-        if variable_name in self.table:
+        if self.table[variable_name][0] == None:
+            raise Exception('Variavel nao setada')
+        elif variable_name in self.table:
             return self.table[variable_name]
         else:
-            raise Exception('Variavel nao declarada')
+            raise Exception('variavel nao declarada')
         
 class Node():
     def __init__(self):
@@ -31,32 +42,39 @@ class BinOp(Node):
         self.children = children
 
     def Evaluate(self, st):
-        if self.value == '-':
-            return self.children[0].Evaluate(st) - self.children[1].Evaluate(st)
+        if self.children[0].Evaluate(st)[1] == 'INTEGER' and self.children[1].Evaluate(st)[1] == 'INTEGER':
+            if self.value == '-':
+                return self.children[0].Evaluate(st)[0] - self.children[1].Evaluate(st)[0]
 
-        elif self.value == '+':
-            return self.children[0].Evaluate(st) + self.children[1].Evaluate(st)
-        
-        elif self.value == '*':
-            return self.children[0].Evaluate(st) * self.children[1].Evaluate(st)
+            elif self.value == '+':
+                return self.children[0].Evaluate(st)[0] + self.children[1].Evaluate(st)[0]
+            
+            elif self.value == '*':
+                return self.children[0].Evaluate(st)[0] * self.children[1].Evaluate(st)[0]
 
-        elif self.value == '/':
-            return self.children[0].Evaluate(st) // self.children[1].Evaluate(st)
+            elif self.value == '/':
+                return self.children[0].Evaluate(st)[0] // self.children[1].Evaluate(st)[0]
 
-        elif self.value == '<':
-            return self.children[0].Evaluate(st) < self.children[1].Evaluate(st)
-        
-        elif self.value == '>':
-            return self.children[0].Evaluate(st) > self.children[1].Evaluate(st)
+            elif self.value == '<':
+                return self.children[0].Evaluate(st)[0] < self.children[1].Evaluate(st)[0]
+            
+            elif self.value == '>':
+                return self.children[0].Evaluate(st)[0] > self.children[1].Evaluate(st)[0]
 
-        elif self.value == '=':
-            return self.children[0].Evaluate(st) == self.children[1].Evaluate(st)
+            elif self.value == '=':
+                return self.children[0].Evaluate(st)[0] == self.children[1].Evaluate(st)[0]
 
-        elif self.value == 'OR':
-            return self.children[0].Evaluate(st) or self.children[1].Evaluate(st)
+        elif self.children[0].Evaluate(st)[1] == 'BOOLEAN' and self.children[1].Evaluate(st)[1] == 'BOOLEAN':
+            if self.value == '=':
+                return self.children[0].Evaluate(st)[0] == self.children[1].Evaluate(st)[0]
 
-        elif self.value == 'AND':
-            return self.children[0].Evaluate(st) and self.children[1].Evaluate(st)
+            elif self.value == 'OR':
+                return self.children[0].Evaluate(st)[0] or self.children[1].Evaluate(st)[0]
+
+            elif self.value == 'AND':
+                return self.children[0].Evaluate(st)[0] and self.children[1].Evaluate(st)[0]
+        else:
+            raise Exception('BinOP nao suporta tipos diferentes')
 
 
 class UnOp(Node):
@@ -66,13 +84,23 @@ class UnOp(Node):
 
     def Evaluate(self, st):
         if self.value == '-':
-            return  -self.children[0].Evaluate(st)
+            if self.children[0].Evaluate(st)[1] == 'INTEGER':
+                return  -self.children[0].Evaluate(st)
+            else:
+                raise Exception('UnOP - nao pode ser feita com esse tipo')
 
         elif self.value == '+':
-            return self.children[0].Evaluate(st)
+            if self.children[0].Evaluate(st)[1] == 'INTEGER':
+                return self.children[0].Evaluate(st)
+            else:
+                raise Exception('UnOP + nao pode ser feita com esse tipo')
+
 
         elif self.value == 'NOT':
-            return not(self.children[0].Evaluate(st))  
+            if self.children[0].Evaluate(st)[1] == 'BOOLEAN':
+                return not(self.children[0].Evaluate(st))  
+            else:
+                raise Exception('UnOP NOT nao pode ser feita com esse tipo')
 
 
 class IntVal(Node):
@@ -81,7 +109,31 @@ class IntVal(Node):
         self.children = children
 
     def Evaluate(self, st):
+        return (self.value, 'INTEGER')
+
+class BoolVal(Node):
+    def __init__(self, value, children):
+        self.value = value
+        self.children = children
+
+    def Evaluate(self, st):
+        return (self.value, 'BOOLEAN')
+
+class TypeNode(Node):
+    def __init__(self, value, children):
+        self.value = value
+        self.children = children
+
+    def Evaluate(self, st):
         return self.value
+
+class VarDec(Node):
+    def __init__(self, value, children):
+        self.value = value
+        self.children = children
+
+    def Evaluate(self, st):
+        st.declareVariable(self.children[0].value, self.children[1].Evaluate(st))
 
 class IdentifierNode(Node):
     def __init__(self, value, children):
@@ -97,6 +149,13 @@ class AssignmentNode(Node):
         self.children = children
 
     def Evaluate(self, st):
+        ## checar se tipos batem
+        # variable_type_st = st.getVariable(self.children[0].value)[1]
+        # variable_type_assignment = self.children[1].Evaluate(st)[1]
+        # if variable_type_st == variable_type_assignment:
+        #     st.setVariable(self.children[0].value, self.children[1].Evaluate(st))
+        # else:
+        #     raise Exception('tipo declarado e tipo setado são diferentes')
         st.setVariable(self.children[0].value, self.children[1].Evaluate(st))
 
 class StatementsNode(Node):
@@ -114,7 +173,7 @@ class PrintNode(Node):
         self.children = children
 
     def Evaluate(self, st):
-        print(self.children[0].Evaluate(st))
+        print(self.children[0].Evaluate(st)[0][0][0])
 
 class WhileNode(Node):
     def __init__(self, value, children):
@@ -174,7 +233,7 @@ class Tokenizer:
             while self.position < len(self.origin) and self.origin[self.position].isdigit():
                 num = num + self.origin[self.position]
                 self.position += 1
-            self.actual = Token('INT', num)
+            self.actual = Token('INTEGER', num)
         elif self.position < len(self.origin) and self.origin[self.position] == '-':
             self.actual = Token('MINUS', '-')
             self.position += 1
@@ -213,7 +272,12 @@ class Tokenizer:
                 self.position += 1
             ps = ps.upper()
             if ps in reserved:
-                self.actual = Token(ps, ps)
+                if ps == 'INTEGER' or ps =='BOOLEAN':
+                    self.actual = Token('TYPE', ps)
+                elif ps == 'TRUE' or ps == 'FALSE':
+                    self.actual = Token('BOOLEAN', ps)
+                else:
+                    self.actual = Token(ps, ps)
             else:
                 self.actual = Token('IDENTIFIER', ps)
         else:
@@ -231,8 +295,12 @@ class PrePro:
 class Parser:
     
     def parseFactor():
-        if Parser.tokens.actual.type_t == 'INT':
+        if Parser.tokens.actual.type_t == 'INTEGER':
             node = IntVal(int(Parser.tokens.actual.value), [])
+            Parser.tokens.selectNext()
+
+        elif Parser.tokens.actual.type_t == 'BOOLEAN':
+            node = BoolVal(Parser.tokens.actual.value, [])
             Parser.tokens.selectNext()
 
         elif Parser.tokens.actual.type_t == 'IDENTIFIER':
@@ -282,12 +350,7 @@ class Parser:
             Parser.tokens.selectNext()
             node = BinOp('=', [node, Parser.parseExpression()])
 
-        else:
-            raise Exception('relexp invalida')
-
         return node
-
-
 
     def parseTerm():
         node = Parser.parseFactor()
@@ -324,6 +387,17 @@ class Parser:
 
         return node
 
+    def parseType():
+        if Parser.tokens.actual.value == 'INTEGER':
+            node = TypeNode('INTEGER', []) # filhos????
+
+        elif Parser.tokens.actual.value == 'BOOLEAN':
+            node = TypeNode('BOOLEAN', []) #filhos?????? 
+        else:
+            raise Exception('tipo inexistente')
+
+        return node
+
     def parseStatement():
         if Parser.tokens.actual.type_t == 'IDENTIFIER':
             variable_name = IdentifierNode(Parser.tokens.actual.value,[])
@@ -337,20 +411,39 @@ class Parser:
             Parser.tokens.selectNext()
             node = PrintNode('PRINT', [Parser.parseExpression()])
 
+        elif Parser.tokens.actual.type_t == 'DIM':
+            Parser.tokens.selectNext()
+            if Parser.tokens.actual.type_t == 'IDENTIFIER':
+                variable_name = IdentifierNode(Parser.tokens.actual.value,[])
+                Parser.tokens.selectNext()
+                if Parser.tokens.actual.type_t == 'AS':
+                    Parser.tokens.selectNext()
+                    if Parser.tokens.actual.value == 'INTEGER' or Parser.tokens.actual.value == 'BOOLEAN':
+                        node = VarDec('vardec', [variable_name, Parser.parseType()])
+                    else:
+                        raise Exception('Tipo não suportado')
+                else:
+                    raise Exception('falta AS depois do nome da variavel')
+            else:
+                raise Exception('falta nome da variavel depois do DIM')
+
+
         elif Parser.tokens.actual.type_t == 'WHILE':
             Parser.tokens.selectNext()
             node = WhileNode('WHILE', [Parser.parseRelExpression()])
 
-            if Parser.tokens.actual.type_t == 'LB':
+            while Parser.tokens.actual.type_t == 'LB':
                 Parser.tokens.selectNext()
-                node.children.append(Parser.parseStatements())
-
-                if Parser.tokens.actual.type_t == 'WEND':
-                    Parser.tokens.selectNext()
-                else:
-                    raise Exception('nao existe wend')
-            else:
-                raise Exception('sem LB depois do WHILE')  
+                node.children.append(Parser.parseStatement())
+                # Parser.tokens.selectNext()
+                # if Parser.tokens.actual.type_t == 'LB':
+                #     Parser.tokens.selectNext()
+        elif Parser.tokens.actual.type_t == 'WEND':
+            Parser.tokens.selectNext()
+        # else:
+        #     raise Exception('nao existe wend')
+            # else:
+            #     raise Exception('sem LB depois do WHILE')  
 
         elif Parser.tokens.actual.type_t == 'IF':
             Parser.tokens.selectNext()
@@ -359,13 +452,13 @@ class Parser:
                 Parser.tokens.selectNext()
                 if Parser.tokens.actual.type_t == 'LB':
                     Parser.tokens.selectNext()
-                    node.children.append(Parser.parseStatements())
+                    node.children.append(Parser.parseStatement())
 
                     if Parser.tokens.actual.type_t == 'ELSE':
                         Parser.tokens.selectNext()
                         if Parser.tokens.actual.type_t == 'LB':
                             Parser.tokens.selectNext()
-                            node.children.append(Parser.parseStatements())
+                            node.children.append(Parser.parseStatement())
                         else:
                             raise Exception('sem LB depois do ELSE')
                     
@@ -386,22 +479,55 @@ class Parser:
             node = NoOp(None, [])
 
         return node
-        
-    def parseStatements():
 
-        filhosstatements = [Parser.parseStatement()]
-
-        while (Parser.tokens.actual.type_t == 'LB'):
+    def parseProgram():
+        if Parser.tokens.actual.type_t == 'SUB':
             Parser.tokens.selectNext()
-            filhosstatements.append(Parser.parseStatement())
+            if Parser.tokens.actual.type_t == 'MAIN':
+                Parser.tokens.selectNext()
+                if Parser.tokens.actual.type_t == 'OP':
+                    Parser.tokens.selectNext()  
+                    if Parser.tokens.actual.type_t == 'CP':
+                        Parser.tokens.selectNext()  
+                        if Parser.tokens.actual.type_t == 'LB':
+                            Parser.tokens.selectNext()
+                            filhosprogram = []
+                            while Parser.tokens.actual.type_t != 'END':
+                                filhosprogram.append(Parser.parseStatement())
+                                Parser.tokens.selectNext()
+                            if Parser.tokens.actual.type_t == 'END':
+                                Parser.tokens.selectNext() 
+                                if Parser.tokens.actual.type_t == 'SUB':
+                                    Parser.tokens.selectNext() 
+                                    return StatementsNode('', filhosprogram)
+                                
+                        else:
+                            raise Exception('sem LB depois de ()')
+                    else:
+                        raise Exception('nao fechou parenteses depois da main(')
+                else:
+                    raise Exception('nao abriu parenteses depois da main')
+            else:
+                raise Exception('falta main deposi de SUB')
+        else:
+            raise Exception('sem SUB')
+            # ???????????
+        
+    # def parseStatements():
 
-        return StatementsNode('', filhosstatements)
+    #     filhosstatements = [Parser.parseStatement()]
+
+    #     while (Parser.tokens.actual.type_t == 'LB'):
+    #         Parser.tokens.selectNext()
+    #         filhosstatements.append(Parser.parseStatement())
+
+    #     return StatementsNode('', filhosstatements)
             
 
     def run(code):
         filtered_code = PrePro.filter(code)
         Parser.tokens = Tokenizer(filtered_code)
-        res = Parser.parseStatements()
+        res = Parser.parseProgram()
         while Parser.tokens.actual.type_t == 'LB':
             Parser.tokens.selectNext()
         if Parser.tokens.actual.type_t == 'EOF':
@@ -412,9 +538,13 @@ class Parser:
 
 # $ python3 main.py test.vbs
 
-with open(sys.argv[1], 'r') as f:
+with open('input.vbs', 'r') as f:
     exp = f.read() + '\n'
+
+# with open(sys.argv[1], 'r') as f:
+#     exp = f.read() + '\n'
 
 print(exp)
 st = SymbolTable()
+st.declareVariable("MAIN", None)
 Parser.run(exp).Evaluate(st)
