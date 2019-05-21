@@ -9,7 +9,7 @@ False equ 0
 
 segment .data
 
-segment.bss  ; variaveis
+segment .bss  ; variaveis
     res RESB 1
 
 section .text
@@ -83,15 +83,15 @@ _start:
   PUSH DWORD 0
   PUSH DWORD 0
   MOV EBX, 5
-  MOV [EBP-12], EBX
-  MOV EBX, 2
   MOV [EBP-8], EBX
+  MOV EBX, 2
+  MOV [EBP-4], EBX
   MOV EBX, 1
-  MOV [EBP-16], EBX
+  MOV [EBP-12], EBX
   LOOP_37:
-  MOV EBX, [EBP-8]
+  MOV EBX, [EBP-4]
   PUSH EBX
-  MOV EBX, [EBP-12]
+  MOV EBX, [EBP-8]
   PUSH EBX
   MOV EBX, 1
   POP EAX
@@ -102,48 +102,26 @@ _start:
   CALL binop_jl
   CMP EBX, False
   JE EXIT_37
-  MOV EBX, [EBP-16]
+  MOV EBX, [EBP-12]
   PUSH EBX
-  MOV EBX, [EBP-8]
+  MOV EBX, [EBP-4]
   POP EAX
   IMUL EBX
   MOV EBX, EAX
-  MOV [EBP-16], EBX
-  MOV EBX, [EBP-8]
+  MOV [EBP-12], EBX
+  MOV EBX, [EBP-4]
   PUSH EBX
   MOV EBX, 1
   POP EAX
   ADD EAX, EBX
   MOV EBX, EAX
-  MOV [EBP-8], EBX
+  MOV [EBP-4], EBX
   JMP LOOP_37
-  EXIT_37
-  MOV EBX, [EBP-16]
+  EXIT_37:
+  MOV EBX, [EBP-12]
   PUSH EBX
   CALL print
   POP EBX
-  MOV EBX, 5
-  PUSH EBX
-  MOV EBX, 6
-  POP EAX
-  CMP EAX, EBX
-  CALL binop_jl
-  CMP EBX, False
-  JE ELSE_57
-  MOV EBX, 100
-  PUSH EBX
-  CALL print
-  POP EBX
-  MOV EBX, 400
-  PUSH EBX
-  CALL print
-  POP EBX
-  MOV EBX, 6000
-  PUSH EBX
-  CALL print
-  POP EBX
-  ELSE_57:
-  NOP
 
 ; interrupcao de saida
 POP EBP

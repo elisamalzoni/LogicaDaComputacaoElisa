@@ -34,8 +34,8 @@ class SymbolTable():
         self.table = {}
     
     def declareVariable(self, variable_name, variable_type):
-        SymbolTable.displacement +=4
         self.table[variable_name] = [None, variable_type, SymbolTable.displacement]
+        SymbolTable.displacement +=4
 
     def setVariable(self, variable_name, variable_value):
         if variable_name in self.table:
@@ -272,7 +272,7 @@ class WhileNode(Node):
             c.Evaluate(st)
 
         CodeGen.write('JMP LOOP_{}'.format(self.id))
-        CodeGen.write('EXIT_{}'.format(self.id))
+        CodeGen.write('EXIT_{}:'.format(self.id))
 
  
 class IfNode(Node):

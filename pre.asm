@@ -9,7 +9,7 @@ False equ 0
 
 segment .data
 
-segment.bss  ; variaveis
+segment .bss  ; variaveis
     res RESB 1
 
 section .text
