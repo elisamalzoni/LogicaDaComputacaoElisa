@@ -21,7 +21,7 @@ class CodeGen():
         with open('out.asm', 'w') as f:
             f.write(pre)
             for item in CodeGen.list_flush:
-                f.write('  ' + item + '\n')
+                f.write(item + '\n')
             f.write('\n' + pos)
 
 
@@ -50,6 +50,7 @@ class SymbolTable():
         if self.table[variable_name][0] == None:
             raise Exception('Variavel nao setada')
         elif variable_name in self.table:
+            # print(self.table[variable_name])
             return self.table[variable_name]
         else:
             raise Exception('variavel nao declarada')
@@ -263,7 +264,7 @@ class WhileNode(Node):
         self.id = Node.newId()
 
     def Evaluate(self, st):
-        CodeGen.write('LOOP_{}:'.format(self.id))
+        CodeGen.write('LOOP_{}:'.format(self.id))
         self.children[0].Evaluate(st)[0]
         CodeGen.write('CMP EBX, False')
         CodeGen.write('JE EXIT_{}'.format(self.id))
