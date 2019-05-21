@@ -4,12 +4,38 @@ import sys
 reserved = ['PRINT', 'END', 'BEGIN', 'NOT', 'AND', 'OR', 'WHILE', 'WEND', 'IF', 'THEN', 'ELSE', 'INPUT', 'MAIN', 'DIM', 'AS', 'INTEGER', 'BOOLEAN', 'SUB', 'TRUE', 'FALSE']
 PRINT, END, BEGIN, NOT, AND, OR, WHILE, WEND, IF, THEN, ELSE , INPUT, MAIN, DIM, AS, INTEGER, BOOLEAN, SUB , TRUE, FALSE= reserved
 
+class CodeGen():
+    list_flush = []
+
+    def write(str_command):
+        CodeGen.list_flush.append(str_command)
+
+    def flush():
+        # coloca pre.asm, list_flush, pos.asm num arquivo .asm
+
+        # open("out.asm", "w").close() # limpar o arquivo
+        with open('pre.asm', 'r') as f:
+            pre = f.read() + '\n'
+        with open('pos.asm', 'r') as f:
+            pos = f.read() + '\n'
+        with open('out.asm', 'w') as f:
+            f.write(pre)
+            for item in CodeGen.list_flush:
+                f.write('  ' + item + '\n')
+            f.write('\n' + pos)
+
+
+
 class SymbolTable():
+
+    displacement = 0
+
     def __init__(self):
         self.table = {}
     
     def declareVariable(self, variable_name, variable_type):
-        self.table[variable_name] = [None, variable_type]
+        SymbolTable.displacement +=4
+        self.table[variable_name] = [None, variable_type, SymbolTable.displacement]
 
     def setVariable(self, variable_name, variable_value):
         if variable_name in self.table:
@@ -29,51 +55,88 @@ class SymbolTable():
             raise Exception('variavel nao declarada')
         
 class Node():
+    i = 0
+
     def __init__(self):
         self.value = None
         self.children = []
+        self.id = Node.newId()
 
     def Evaluate(self, st):
         pass
+
+    def newId():
+        Node.i+=1
+        return Node.i
 
 class BinOp(Node):
     def __init__(self, value, children):
         self.value = value
         self.children = children
+        self.id = Node.newId()
 
     def Evaluate(self, st):
+        lc = self.children[0].Evaluate(st)
 
-        if self.children[0].Evaluate(st)[1] == 'INTEGER' and self.children[1].Evaluate(st)[1] == 'INTEGER':
+        # CodeGen.write('MOV EBX, {} ; bin op'.format(lc[0]))
+        CodeGen.write('PUSH EBX')
+        
+        rc = self.children[1].Evaluate(st)
+        # CodeGen.write('MOV EBX, {}'.format(rc[0]))
+        CodeGen.write('POP EAX')
+
+
+        if lc[1] == 'INTEGER' and rc[1] == 'INTEGER':
             if self.value == '-':
-                return (self.children[0].Evaluate(st)[0] - self.children[1].Evaluate(st)[0], 'INTEGER')
+                CodeGen.write('SUB EAX, EBX')
+                CodeGen.write('MOV EBX, EAX')
+                return (lc[0] - rc[0], 'INTEGER')
 
             elif self.value == '+':
-                return (self.children[0].Evaluate(st)[0] + self.children[1].Evaluate(st)[0], 'INTEGER')
+                CodeGen.write('ADD EAX, EBX')
+                CodeGen.write('MOV EBX, EAX')
+                return (lc[0] + rc[0], 'INTEGER')
             
             elif self.value == '*':
-                return (self.children[0].Evaluate(st)[0] * self.children[1].Evaluate(st)[0], 'INTEGER')
+                CodeGen.write('IMUL EBX')
+                CodeGen.write('MOV EBX, EAX')
+                return (lc[0] * rc[0], 'INTEGER')
 
             elif self.value == '/':
-                return (self.children[0].Evaluate(st)[0] // self.children[1].Evaluate(st)[0], 'INTEGER')
+                CodeGen.write('IDIV EBX')
+                CodeGen.write('MOV EBX, EAX')
+                return (lc[0] // rc[0], 'INTEGER')
 
             elif self.value == '<':
-                return (self.children[0].Evaluate(st)[0] < self.children[1].Evaluate(st)[0], 'BOOLEAN')
+                CodeGen.write('CMP EAX, EBX')
+                CodeGen.write('CALL binop_jl')
+                return (lc[0] < rc[0], 'BOOLEAN')
             
             elif self.value == '>':
-                return (self.children[0].Evaluate(st)[0] > self.children[1].Evaluate(st)[0], 'BOOLEAN')
+                CodeGen.write('CMP EAX, EBX')
+                CodeGen.write('CALL binop_jg')
+                return (lc[0] > rc[0], 'BOOLEAN')
 
             elif self.value == '=':
-                return (self.children[0].Evaluate(st)[0] == self.children[1].Evaluate(st)[0], 'BOOLEAN')
+                CodeGen.write('CMP EAX, EBX')
+                CodeGen.write('CALL binop_je')
+                return (lc[0] == rc[0], 'BOOLEAN')
 
-        elif self.children[0].Evaluate(st)[1] == 'BOOLEAN' and self.children[1].Evaluate(st)[1] == 'BOOLEAN':
+        elif lc[1] == 'BOOLEAN' and rc[1] == 'BOOLEAN':
             if self.value == '=':
-                return (self.children[0].Evaluate(st)[0] == self.children[1].Evaluate(st)[0], 'BOOLEAN')
+                CodeGen.write('CMP EAX, EBX')
+                CodeGen.write('CALL binop_je')
+                return (lc[0] == rc[0], 'BOOLEAN')
 
             elif self.value == 'OR':
-                return (self.children[0].Evaluate(st)[0] or self.children[1].Evaluate(st)[0], 'BOOLEAN')
+                CodeGen.write('OR EAX, EBX')
+                CodeGen.write('MOV EBX, EAX')
+                return (lc[0] or rc[0], 'BOOLEAN')
 
             elif self.value == 'AND':
-                return (self.children[0].Evaluate(st)[0] and self.children[1].Evaluate(st)[0], 'BOOLEAN')
+                CodeGen.write('AND EAX, EBX')
+                CodeGen.write('MOV EBX, EAX')
+                return (lc[0] and rc[0], 'BOOLEAN')
         else:
             raise Exception('BinOP nao suporta tipos diferentes')
 
@@ -82,24 +145,29 @@ class UnOp(Node):
     def __init__(self, value, children):
         self.value = value
         self.children = children
+        self.id = Node.newId()
 
     def Evaluate(self, st):
+        c = self.children[0].Evaluate(st)
         if self.value == '-':
-            if self.children[0].Evaluate(st)[1] == 'INTEGER':
-                return  (-self.children[0].Evaluate(st)[0], 'INTEGER')
+            if c[1] == 'INTEGER':
+                # CodeGen.write('MOV EBX, -{}'.format(c[0]))
+                return  (-c[0], 'INTEGER')
             else:
                 raise Exception('UnOP - nao pode ser feita com esse tipo')
 
         elif self.value == '+':
-            if self.children[0].Evaluate(st)[1] == 'INTEGER':
-                return (self.children[0].Evaluate(st)[0], 'INTEGER')
+            if c[1] == 'INTEGER':
+                # CodeGen.write('MOV EBX, {}'.format(c[0]))
+                return (c[0], 'INTEGER')
             else:
                 raise Exception('UnOP + nao pode ser feita com esse tipo')
 
 
         elif self.value == 'NOT':
-            if self.children[0].Evaluate(st)[1] == 'BOOLEAN':
-                return (not (self.children[0].Evaluate(st))[0], 'BOOLEAN') 
+            if c[1] == 'BOOLEAN':
+                #not nasm????
+                return (not c[0], 'BOOLEAN') 
             else:
                 raise Exception('UnOP NOT nao pode ser feita com esse tipo')
 
@@ -108,22 +176,27 @@ class IntVal(Node):
     def __init__(self, value, children):
         self.value = value
         self.children = children
+        self.id = Node.newId()
 
     def Evaluate(self, st):
+        CodeGen.write('MOV EBX, {}'.format(self.value))
         return (self.value, 'INTEGER')
 
 class BoolVal(Node):
     def __init__(self, value, children):
         self.value = value
         self.children = children
+        self.id = Node.newId()
 
     def Evaluate(self, st):
+        CodeGen.write('MOV EBX, {}'.format(self.value))
         return (self.value, 'BOOLEAN')
 
 class TypeNode(Node):
     def __init__(self, value, children):
         self.value = value
         self.children = children
+        self.id = Node.newId()
 
     def Evaluate(self, st):
         return self.value
@@ -132,30 +205,39 @@ class VarDec(Node):
     def __init__(self, value, children):
         self.value = value
         self.children = children
+        self.id = Node.newId()
 
     def Evaluate(self, st):
         st.declareVariable(self.children[0].value, self.children[1].Evaluate(st))
+        CodeGen.write('PUSH DWORD 0')
 
 class IdentifierNode(Node):
     def __init__(self, value, children):
         self.value = value
         self.children = children
+        self.id = Node.newId()
 
     def Evaluate(self, st):
+        CodeGen.write('MOV EBX, [EBP-{}]'.format(st.getVariable(self.value)[2]))
+        # CodeGen.write('PUSH EBX')
         return st.getVariable(self.value)
 
 class AssignmentNode(Node):
     def __init__(self, value, children):
         self.value = value
         self.children = children
+        self.id = Node.newId()
 
     def Evaluate(self, st):
         st.setVariable(self.children[0].value, self.children[1].Evaluate(st))
+        # CodeGen.write('MOV EBX, {}'.format(st.getVariable(self.children[0].value)[0]))
+        CodeGen.write('MOV [EBP-{}], EBX'.format(st.getVariable(self.children[0].value)[2]))
 
 class StatementsNode(Node):
     def __init__(self, value, children):
         self.value = value
         self.children = children
+        self.id = Node.newId()
 
     def Evaluate(self, st):
         for child in self.children:
@@ -165,30 +247,51 @@ class PrintNode(Node):
     def __init__(self, value, children):
         self.value = value
         self.children = children
+        self.id = Node.newId()
 
     def Evaluate(self, st):
-        print(self.children[0].Evaluate(st)[0])
+        self.children[0].Evaluate(st)
+        CodeGen.write('PUSH EBX')
+        CodeGen.write('CALL print')
+        CodeGen.write('POP EBX')
+        # print(self.children[0].Evaluate(st)[0])
 
 class WhileNode(Node):
     def __init__(self, value, children):
         self.value = value
         self.children = children
+        self.id = Node.newId()
 
     def Evaluate(self, st):
-        while self.children[0].Evaluate(st)[0]:
-            for c in self.children[1]:
-                c.Evaluate(st)
+        CodeGen.write('LOOP_{}:'.format(self.id))
+        self.children[0].Evaluate(st)[0]
+        CodeGen.write('CMP EBX, False')
+        CodeGen.write('JE EXIT_{}'.format(self.id))
+        # while self.children[0].Evaluate(st)[0]:
+        for c in self.children[1]:
+            c.Evaluate(st)
+
+        CodeGen.write('JMP LOOP_{}'.format(self.id))
+        CodeGen.write('EXIT_{}'.format(self.id))
+
  
 class IfNode(Node):
     def __init__(self, value, children):
         self.value = value
         self.children = children
+        self.id = Node.newId()
 
     def Evaluate(self, st):
-        if self.children[0].Evaluate(st)[0]:
-            for c in self.children[1]:
-                c.Evaluate(st)
-        elif len(self.children) == 3:
+        self.children[0].Evaluate(st)
+        CodeGen.write('CMP EBX, False')
+        CodeGen.write('JE ELSE_{}'.format(self.id))
+        # if self.children[0].Evaluate(st)[0]:
+        for c in self.children[1]:
+            c.Evaluate(st)
+        
+        CodeGen.write('ELSE_{}:'.format(self.id))
+        CodeGen.write('NOP')
+        if len(self.children) == 3:
             for c in self.children[2]:
                 c.Evaluate(st)
 
@@ -196,6 +299,7 @@ class InputNode(Node):
     def __init__(self, value, children):
         self.value = value
         self.children = children
+        self.id = Node.newId()
 
     def Evaluate(self, st):
         return (int(input()), 'INTEGER')
@@ -204,6 +308,7 @@ class NoOp(Node):
     def __init__(self, value, children):
         self.value = value
         self.children = children
+        self.id = Node.newId()
 
     def Evaluate(self, st):
         pass
@@ -212,6 +317,7 @@ class Token:
     def __init__(self, type_t, value):
         self.type_t = type_t
         self.value = value
+        
 
 class Tokenizer:
     def __init__(self, origin):
@@ -535,13 +641,14 @@ class Parser:
 
 # $ python3 main.py test.vbs
 
-# with open('input.vbs', 'r') as f:
-#     exp = f.read() + '\n'
-
-with open(sys.argv[1], 'r') as f:
+with open('test.vbs', 'r') as f:
     exp = f.read() + '\n'
+
+# with open(sys.argv[1], 'r') as f:
+#     exp = f.read() + '\n'
 
 print(exp)
 st = SymbolTable()
 st.declareVariable("MAIN", None)
 Parser.run(exp).Evaluate(st)
+CodeGen.flush()
