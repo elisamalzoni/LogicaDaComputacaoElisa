@@ -13,6 +13,8 @@ class SymbolTable():
 
     def setVariable(self, variable_name, variable_value):
         if variable_name in self.table:
+            print(variable_name)
+            print(variable_value)
             if self.table[variable_name][1] == variable_value[1]:
                 self.table[variable_name][0] = variable_value[0]
             else:
@@ -204,14 +206,52 @@ class InputNode(Node):
     def Evaluate(self, st):
         return (int(input()), 'INTEGER')
 
+class FuncDec(Node):
+    def __init__(self, value, children):
+        self.value = value
+        self.children = children
+
+    def Evaluate(self, st):
+        ## colocar na st
+        st.declareVariable(self.children[0], self.children[1])
+        # print(self.children)
+        # print(self)
+        st.setVariable(self.children[0], [self, self.children[1]])
+        # pass
+
+class SubDec(Node):
+    def __init__(self, value, children):
+        self.value = value
+        self.children = children
+
+    def Evaluate(self, st):
+        ## colocar na st
+        st.declareVariable(self.children[0], self.children[1])
+        st.setVariable(self.children[0], [self, self.children[1]])
+        # pass
+
 class FuncCall(Node):
     def __init__(self, value, children):
         self.value = value
         self.children = children
 
     def Evaluate(self, st):
-        
-      
+        node = st.getVariable(self.value)
+
+        ## criar st 
+        ste = SymbolTable()
+        # evaluate dos filho 0
+        tipo = node[0].children[0].Evaluate(st)
+
+        if tipo == 'BOOLEAN' or tipo == 'INTEGER':
+            ste.declareVariable(self.value, tipo)
+
+        # evaluate dos outros filhos
+        for i in range(1, len(self.children)-1):
+            node[0].children[i].Evaluate(ste)
+            ste.setVariable(self.children[i-1])
+        node[0].children[len(node[0])-1].Evaluate(ste)
+            
 
 class NoOp(Node):
     def __init__(self, value, children):
@@ -319,16 +359,18 @@ class Parser:
             Parser.tokens.selectNext()
 
         elif Parser.tokens.actual.type_t == 'IDENTIFIER':
-
+            function_name = Parser.tokens.actual.value
+            Parser.tokens.selectNext()
             if Parser.tokens.actual.type_t == 'OP':
                 Parser.tokens.selectNext()
                 listaargs = []
                 while Parser.tokens.actual.type_t != 'CP':
                     Parser.tokens.selectNext()
-                    listaargs.append()
+                    if Parser.tokens.actual.type_t != 'COMMA':
+                        listaargs.append(Parser.parseRelExpression())
                 if Parser.tokens.actual.type_t == 'CP':
                     Parser.tokens.selectNext()
-                    node = FuncCall() ## aqui usar lista args
+                    node = FuncCall(function_name, listaargs) ## aqui usar lista args
                 else:
                     raise Exception('Nao fechou parenteses')
             else:
@@ -541,6 +583,7 @@ class Parser:
         elif Parser.tokens.actual.type_t == 'CALL':
             Parser.tokens.selectNext()
             if Parser.tokens.actual.type_t == 'IDENTIFIER':
+                function_name = Parser.tokens.actual.value
                 Parser.tokens.selectNext()
                 if Parser.tokens.actual.type_t == 'OP':
                     Parser.tokens.selectNext()
@@ -550,6 +593,7 @@ class Parser:
                         listacall.append(Parser.parseRelExpression())
                     if Parser.tokens.actual.type_t == 'CP':
                         Parser.tokens.selectNext()
+                        return FuncCall(function_name, listacall)
                 else:
                     raise Exception('nao abriu parenteses')
             else:
@@ -577,8 +621,9 @@ class Parser:
                             if Parser.tokens.actual.value == 'INTEGER' or Parser.tokens.actual.value == 'BOOLEAN':
                                 node = VarDec('vardec', [variable_name, Parser.parseType()])
                                 listavar.append(node)
-
+                                Parser.tokens.selectNext()
                                 while Parser.tokens.actual.type_t == 'COMMA':
+                                    Parser.tokens.selectNext()
                                     if Parser.tokens.actual.type_t == 'IDENTIFIER':
                                         variable_name = IdentifierNode(Parser.tokens.actual.value,[])
                                         Parser.tokens.selectNext()
@@ -588,6 +633,7 @@ class Parser:
                                             if Parser.tokens.actual.value == 'INTEGER' or Parser.tokens.actual.value == 'BOOLEAN':
                                                 node = VarDec('vardec', [variable_name, Parser.parseType()])
                                                 listavar.append(node)
+                                                Parser.tokens.selectNext()
                                             else:
                                                 raise Exception('tipo nao suportado')
                                         else:
@@ -602,9 +648,11 @@ class Parser:
                     if Parser.tokens.actual.type_t == 'CP':
                         Parser.tokens.selectNext()
                         if Parser.tokens.actual.type_t == 'AS':
+                            Parser.tokens.selectNext()
                             if Parser.tokens.actual.value == 'INTEGER' or Parser.tokens.actual.value == 'BOOLEAN':
                                 node = VarDec('vardec', [variable_name, Parser.parseType()])
                                 listavar.append(node)
+                                Parser.tokens.selectNext()
                                 if Parser.tokens.actual.type_t == 'LB':
                                     Parser.tokens.selectNext()
                                     filhosfuncdec = []
@@ -613,9 +661,10 @@ class Parser:
                                         Parser.tokens.selectNext()
                                     if Parser.tokens.actual.type_t == 'END':
                                         Parser.tokens.selectNext() 
+                                        listavar.append(StatementsNode('', filhosfuncdec))
                                         if Parser.tokens.actual.type_t == 'FUNCTION':
                                             Parser.tokens.selectNext() 
-                                            return StatementsNode('', filhosfuncdec)
+                                            return FuncDec(function_name, listavar)
                                         else:
                                             raise Exception('sem FUNCTION')
                                     else:
@@ -627,7 +676,7 @@ class Parser:
                         else:
                             raise Exception('sem AS depois do function')
                     else:
-                        raise Exception('nao fechou parenteses depois de ( ')
+                        raise Exception('nao fechou parenteses depois de OP ')
                 else:
                     raise Exception('nao abriu parenteses depois da declaracao')
             else:
@@ -684,10 +733,11 @@ class Parser:
                                 filhossubdec.append(Parser.parseStatement())
                                 Parser.tokens.selectNext()
                             if Parser.tokens.actual.type_t == 'END':
-                                Parser.tokens.selectNext() 
+                                Parser.tokens.selectNext()
+                                listavar.append(StatementsNode('', filhossubdec))
                                 if Parser.tokens.actual.type_t == 'SUB':
                                     Parser.tokens.selectNext() 
-                                    return StatementsNode('', filhossubdec)
+                                    return SubDec(function_name, listavar)
                                 else:
                                     raise Exception('sem sub')
                             else:
@@ -696,7 +746,7 @@ class Parser:
                         else:
                             raise Exception('sem LB depois de ()')
                     else:
-                        raise Exception('nao fechou parenteses depois de ( ')
+                        raise Exception('nao fechou parenteses depois de OP ')
                 else:
                     raise Exception('nao abriu parenteses depois da declaracao')
             else:
@@ -715,7 +765,7 @@ class Parser:
                 while Parser.tokens.actual.type_t == 'LB':
                     Parser.tokens.selectNext()
         
-        filhosstatements.append(FuncCallNode('MAIN', []))
+        filhosstatements.append(FuncCall('MAIN', []))
         return StatementsNode('', filhosstatements)
 
 
@@ -742,5 +792,4 @@ with open('test.vbs', 'r') as f:
 
 print(exp)
 st = SymbolTable()
-st.declareVariable("MAIN", None)
 Parser.run(exp).Evaluate(st)
