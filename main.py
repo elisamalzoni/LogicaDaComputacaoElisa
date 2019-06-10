@@ -5,30 +5,48 @@ reserved = ['PRINT', 'END', 'BEGIN', 'NOT', 'AND', 'OR', 'WHILE', 'WEND', 'IF', 
 # PRINT, END, BEGIN, NOT, AND, OR, WHILE, WEND, IF, THEN, ELSE , INPUT, MAIN, DIM, AS, INTEGER, BOOLEAN, SUB , TRUE, FALSE, ,, 'FUNCTION', 'CALL'= reserved
 
 class SymbolTable():
-    def __init__(self):
+    def __init__(self, ancestor):
         self.table = {}
+        self.ancestor = ancestor
     
     def declareVariable(self, variable_name, variable_type):
         self.table[variable_name] = [None, variable_type]
 
     def setVariable(self, variable_name, variable_value):
-        if variable_name in self.table:
-            print(variable_name)
-            print(variable_value)
-            if self.table[variable_name][1] == variable_value[1]:
-                self.table[variable_name][0] = variable_value[0]
-            else:
-                raise Exception('tipo declarado e tipo setado são diferentes')
-        else:
-            raise Exception('Variavel nao pode ser setada, nao declarada')
+        anc = self
+        achou = False
+        while anc != None:# or anc.ancestor != None or achou == False:
+            if variable_name in anc.table:
+                if anc.table[variable_name][1] == variable_value[1]:
+                    anc.table[variable_name][0] = variable_value[0]
+                    # achou = True
+                    break
+                else:
+                    raise Exception('tipo declarado e tipo setado são diferentes')
+            anc = anc.ancestor
+
+            if anc.ancestor == None:
+                raise Exception('Variavel nao pode ser setada, nao declarada')
 
     def getVariable(self, variable_name):
-        if self.table[variable_name][0] == None:
-            raise Exception('Variavel nao setada')
-        elif variable_name in self.table:
-            return self.table[variable_name]
-        else:
-            raise Exception('variavel nao declarada')
+        anc = self
+        while anc != None:
+            if variable_name in anc.table:
+                if anc.table[variable_name][0] == None:
+                    raise Exception('Variavel nao setada')
+                elif variable_name in anc.table:
+                    return anc.table[variable_name]
+                else:
+                    raise Exception('variavel nao declarada')
+            else:
+                anc = anc.ancestor
+
+        # if variable_name in anc.table:
+        #         if anc.table[variable_name][0] == None:
+        #             raise Exception('Variavel nao setada')
+        #         elif variable_name in self.table:
+        #             return anc.table[variable_name]
+        raise Exception('variavel nao declarada')
         
 class Node():
     def __init__(self):
@@ -79,7 +97,6 @@ class BinOp(Node):
         else:
             raise Exception('BinOP nao suporta tipos diferentes')
 
-
 class UnOp(Node):
     def __init__(self, value, children):
         self.value = value
@@ -104,7 +121,6 @@ class UnOp(Node):
                 return (not (self.children[0].Evaluate(st))[0], 'BOOLEAN') 
             else:
                 raise Exception('UnOP NOT nao pode ser feita com esse tipo')
-
 
 class IntVal(Node):
     def __init__(self, value, children):
@@ -213,10 +229,10 @@ class FuncDec(Node):
 
     def Evaluate(self, st):
         ## colocar na st
-        st.declareVariable(self.children[0], self.children[1])
+        st.declareVariable(self.value, 'FUNCTION')
         # print(self.children)
         # print(self)
-        st.setVariable(self.children[0], [self, self.children[1]])
+        st.setVariable(self.value, [self, 'FUNCTION'])
         # pass
 
 class SubDec(Node):
@@ -226,8 +242,8 @@ class SubDec(Node):
 
     def Evaluate(self, st):
         ## colocar na st
-        st.declareVariable(self.children[0], self.children[1])
-        st.setVariable(self.children[0], [self, self.children[1]])
+        st.declareVariable(self.value, 'SUB')
+        st.setVariable(self.value, [self, 'SUB'])
         # pass
 
 class FuncCall(Node):
@@ -239,18 +255,22 @@ class FuncCall(Node):
         node = st.getVariable(self.value)
 
         ## criar st 
-        ste = SymbolTable()
+        ste = SymbolTable(st)
         # evaluate dos filho 0
-        tipo = node[0].children[0].Evaluate(st)
+        node[0].children[0].Evaluate(ste)
 
-        if tipo == 'BOOLEAN' or tipo == 'INTEGER':
-            ste.declareVariable(self.value, tipo)
+        # if tipo == 'BOOLEAN' or tipo == 'INTEGER':
+        #     ste.declareVariable(self.value, tipo)
 
         # evaluate dos outros filhos
         for i in range(1, len(self.children)-1):
             node[0].children[i].Evaluate(ste)
-            ste.setVariable(self.children[i-1])
-        node[0].children[len(node[0])-1].Evaluate(ste)
+            ste.setVariable(node[0].children[i].value, self.children[i-1]).Evaluate()
+        node[0].children[len(node[0].children)-1].Evaluate(ste)
+
+        if st.getVariable(self.value)[0] == 'FUNCTION':
+            return ste.getVariable(self.value)
+
             
 
 class NoOp(Node):
@@ -374,7 +394,8 @@ class Parser:
                 else:
                     raise Exception('Nao fechou parenteses')
             else:
-                node = IdentifierNode(Parser.tokens.actual.value, [])
+                # node = IdentifierNode(Parser.tokens.actual.value, [])
+                node = IdentifierNode(function_name, [])
                 Parser.tokens.selectNext()
 
         elif Parser.tokens.actual.type_t == 'OP':
@@ -402,7 +423,7 @@ class Parser:
             node = InputNode("",[])
 
         else:
-            print(Parser.tokens.actual.type_t)
+            # print(Parser.tokens.actual.type_t)
             raise Exception('token invalido')
 
         return node
@@ -439,7 +460,6 @@ class Parser:
                 node = BinOp('AND', [node, Parser.parseFactor()])
 
         return node
-
 
     def parseExpression():
         node = Parser.parseTerm()
@@ -561,8 +581,9 @@ class Parser:
                                 #     raise Exception('nao existe END depois do ELSE')
                             else:
                                 raise Exception('sem LB dentro do ELSE')
-                            if Parser.tokens.actual.type_t != 'END':
-                                node.children[2].append(Parser.parseStatement())
+                        if Parser.tokens.actual.type_t != 'END':
+                            node.children[2].append(Parser.parseStatement())
+                            Parser.tokens.selectNext()
 
                     elif Parser.tokens.actual.type_t == 'END':
                         Parser.tokens.selectNext()
@@ -617,7 +638,6 @@ class Parser:
                         Parser.tokens.selectNext()
                         if Parser.tokens.actual.type_t == 'AS':
                             Parser.tokens.selectNext()
-                            
                             if Parser.tokens.actual.value == 'INTEGER' or Parser.tokens.actual.value == 'BOOLEAN':
                                 node = VarDec('vardec', [variable_name, Parser.parseType()])
                                 listavar.append(node)
@@ -629,7 +649,6 @@ class Parser:
                                         Parser.tokens.selectNext()
                                         if Parser.tokens.actual.type_t == 'AS':
                                             Parser.tokens.selectNext()
-                                           
                                             if Parser.tokens.actual.value == 'INTEGER' or Parser.tokens.actual.value == 'BOOLEAN':
                                                 node = VarDec('vardec', [variable_name, Parser.parseType()])
                                                 listavar.append(node)
@@ -650,7 +669,8 @@ class Parser:
                         if Parser.tokens.actual.type_t == 'AS':
                             Parser.tokens.selectNext()
                             if Parser.tokens.actual.value == 'INTEGER' or Parser.tokens.actual.value == 'BOOLEAN':
-                                node = VarDec('vardec', [variable_name, Parser.parseType()])
+                                # node = VarDec('vardec', [variable_name, Parser.parseType()])
+                                node = VarDec('vardec', [IdentifierNode(function_name, [])], Parser.parseType())##### nome da função?????
                                 listavar.append(node)
                                 Parser.tokens.selectNext()
                                 if Parser.tokens.actual.type_t == 'LB':
@@ -691,25 +711,22 @@ class Parser:
                 function_name = Parser.tokens.actual.value
                 Parser.tokens.selectNext()
                 if Parser.tokens.actual.type_t == 'OP':
-                    listavar = []
+                    listavar = [NoOp('', [])]
                     Parser.tokens.selectNext() 
                     if Parser.tokens.actual.type_t == 'IDENTIFIER':
                         variable_name = IdentifierNode(Parser.tokens.actual.value,[])
                         Parser.tokens.selectNext()
                         if Parser.tokens.actual.type_t == 'AS':
                             Parser.tokens.selectNext()
-                            
                             if Parser.tokens.actual.value == 'INTEGER' or Parser.tokens.actual.value == 'BOOLEAN':
                                 node = VarDec('vardec', [variable_name, Parser.parseType()])
                                 listavar.append(node)
-
                                 while Parser.tokens.actual.type_t == 'COMMA':
                                     if Parser.tokens.actual.type_t == 'IDENTIFIER':
                                         variable_name = IdentifierNode(Parser.tokens.actual.value,[])
                                         Parser.tokens.selectNext()
                                         if Parser.tokens.actual.type_t == 'AS':
                                             Parser.tokens.selectNext()
-                                           
                                             if Parser.tokens.actual.value == 'INTEGER' or Parser.tokens.actual.value == 'BOOLEAN':
                                                 node = VarDec('vardec', [variable_name, Parser.parseType()])
                                                 listavar.append(node)
@@ -791,5 +808,5 @@ with open('test.vbs', 'r') as f:
 #     exp = f.read() + '\n'
 
 print(exp)
-st = SymbolTable()
+st = SymbolTable(None)
 Parser.run(exp).Evaluate(st)
