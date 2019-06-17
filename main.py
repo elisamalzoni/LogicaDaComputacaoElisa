@@ -2,7 +2,6 @@ import re
 import sys
 
 reserved = ['PRINT', 'END', 'BEGIN', 'NOT', 'AND', 'OR', 'WHILE', 'WEND', 'IF', 'THEN', 'ELSE', 'INPUT', 'DIM', 'AS', 'INTEGER', 'BOOLEAN', 'SUB', 'TRUE', 'FALSE', 'FUNCTION', 'CALL']
-# PRINT, END, BEGIN, NOT, AND, OR, WHILE, WEND, IF, THEN, ELSE , INPUT, MAIN, DIM, AS, INTEGER, BOOLEAN, SUB , TRUE, FALSE, ,, 'FUNCTION', 'CALL'= reserved
 
 class SymbolTable():
     def __init__(self, ancestor):
@@ -141,7 +140,6 @@ class VarDec(Node):
 
     def Evaluate(self, st):
         st.declareVariable(self.children[0].value, self.children[1].Evaluate(st))
-        #st.declareVariable(self.children[0], self.children[1].Evaluate(st))
 
 class IdentifierNode(Node):
     def __init__(self, value, children):
@@ -157,7 +155,6 @@ class AssignmentNode(Node):
         self.children = children
 
     def Evaluate(self, st):
-        # st.setVariable(self.children[0].value, self.children[1].Evaluate(st))
         st.setVariable(self.children[0], self.children[1].Evaluate(st))
 
 class StatementsNode(Node):
@@ -193,7 +190,6 @@ class IfNode(Node):
         self.children = children
 
     def Evaluate(self, st):
-        # print('aaaaa', self.children[0].Evaluate(st)[1])
         if self.children[0].Evaluate(st)[1] == 'BOOLEAN':
             if self.children[0].Evaluate(st)[0]:
                 for c in self.children[1]:
@@ -218,12 +214,8 @@ class FuncDec(Node):
         self.children = children
 
     def Evaluate(self, st):
-        ## colocar na st
         st.declareVariable(self.value, 'FUNCTION')
-        # print(self.children)
-        # print(self)
         st.setVariable(self.value, [self, 'FUNCTION'])
-        # pass
 
 class SubDec(Node):
     def __init__(self, value, children):
@@ -231,10 +223,9 @@ class SubDec(Node):
         self.children = children
 
     def Evaluate(self, st):
-        ## colocar na st
         st.declareVariable(self.value, 'SUB')
         st.setVariable(self.value, [self, 'SUB'])
-        # pass
+
 
 class FuncCall(Node):
     def __init__(self, value, children):
@@ -244,7 +235,6 @@ class FuncCall(Node):
     def Evaluate(self, st):
         node = st.getVariable(self.value) ## get especial que busca na raiz
 
-        ## criar st 
         ste = SymbolTable(st)
 
         # evaluate dos filho 0
@@ -351,7 +341,6 @@ class PrePro:
         filtered_code = re.sub("'.*\n", "\n", code)
         # replace tab 4 espacos
         filtered_code_no_tab = re.sub("\t", "    ", filtered_code)
-        # print(filtered_code)
         return filtered_code_no_tab
 
 class Parser:
@@ -374,20 +363,17 @@ class Parser:
                 if Parser.tokens.actual.type_t != 'CP':
                     listaargs.append(Parser.parseRelExpression())
 
-                    # Parser.tokens.selectNext()
                     while Parser.tokens.actual.type_t == 'COMMA':
                         Parser.tokens.selectNext()
                         listaargs.append(Parser.parseRelExpression())
 
                 if Parser.tokens.actual.type_t == 'CP':
                     Parser.tokens.selectNext()
-                    node = FuncCall(function_name, listaargs) ## aqui usar lista args
+                    node = FuncCall(function_name, listaargs)
                 else:
                     raise Exception('Nao fechou parenteses')
             else:
-                # node = IdentifierNode(Parser.tokens.actual.value, [])
                 node = IdentifierNode(function_name, [])
-                # Parser.tokens.selectNext()
 
         elif Parser.tokens.actual.type_t == 'OP':
             Parser.tokens.selectNext()
@@ -414,7 +400,6 @@ class Parser:
             node = InputNode("",[])
 
         else:
-            # print(Parser.tokens.actual.type_t)
             raise Exception('token invalido')
 
         return node
@@ -483,7 +468,6 @@ class Parser:
     def parseStatement():
         node = NoOp(None, [])
         if Parser.tokens.actual.type_t == 'IDENTIFIER':
-            # variable_name = IdentifierNode(Parser.tokens.actual.value,[])
             variable_name = Parser.tokens.actual.value
             Parser.tokens.selectNext()
             if Parser.tokens.actual.type_t == 'ASSIGNMENT':
@@ -499,7 +483,6 @@ class Parser:
             Parser.tokens.selectNext()
             if Parser.tokens.actual.type_t == 'IDENTIFIER':
                 variable_name = IdentifierNode(Parser.tokens.actual.value,[])
-                # variable_name = Parser.tokens.actual.value
                 Parser.tokens.selectNext()
                 if Parser.tokens.actual.type_t == 'AS':
                     Parser.tokens.selectNext()
@@ -527,8 +510,6 @@ class Parser:
 
                     if Parser.tokens.actual.type_t == 'LB':
                         Parser.tokens.selectNext()
-                    # else:
-                    #     raise Exception('sem LB dentro do WHILE')
 
                 if Parser.tokens.actual.type_t == 'WEND':
                     Parser.tokens.selectNext()
@@ -565,28 +546,6 @@ class Parser:
                             node.children[1].append(Parser.parseStatement())
                             Parser.tokens.selectNext()
 
-                    # if Parser.tokens.actual.type_t == 'ELSE':
-                    #     node.children.append([])
-                    #     Parser.tokens.selectNext()
-
-                    #     if Parser.tokens.actual.type_t == 'LB':
-                    #             Parser.tokens.selectNext()
-
-                    #     node.children[2].append(Parser.parseStatement())
-                    #     while Parser.tokens.actual.type_t != 'END':
-                    #         if Parser.tokens.actual.type_t == 'LB':
-                    #             Parser.tokens.selectNext()
-
-                    #             # if Parser.tokens.actual.type_t == 'END':
-                    #             #     Parser.tokens.selectNext()
-                    #             # else:
-                    #             #     raise Exception('nao existe END depois do ELSE')
-                    #         else:
-                    #             raise Exception('sem LB dentro do ELSE')
-                    #     if Parser.tokens.actual.type_t != 'END':
-                    #         node.children[2].append(Parser.parseStatement())
-                    #         Parser.tokens.selectNext()
-
                     if Parser.tokens.actual.type_t == 'END':
                         Parser.tokens.selectNext()
                         
@@ -612,7 +571,6 @@ class Parser:
                     Parser.tokens.selectNext()
                     listacall = []
                     while Parser.tokens.actual.type_t != 'CP':
-                        # Parser.tokens.selectNext()
                         listacall.append(Parser.parseRelExpression())
                         if Parser.tokens.actual.type_t == 'COMMA':
                             Parser.tokens.selectNext()
@@ -644,8 +602,6 @@ class Parser:
                             if Parser.tokens.actual.type_t == 'AS':
                                 Parser.tokens.selectNext()
                                 if Parser.tokens.actual.value == 'INTEGER' or Parser.tokens.actual.value == 'BOOLEAN':
-                                    # node = VarDec('vardec', [variable_name, Parser.parseType()])
-                                    # listavar.append(VarDec('vardec', [variable_name, Parser.parseType()]))
                                     listavar.append(VarDec('vardec', [IdentifierNode(variable_name, []), Parser.parseType()]))
                                     Parser.tokens.selectNext()
                                     if Parser.tokens.actual.type_t == 'COMMA':
@@ -782,13 +738,9 @@ class Parser:
         filtered_code = PrePro.filter(code)
         Parser.tokens = Tokenizer(filtered_code)
         res = Parser.parseProgram()
-        # while Parser.tokens.actual.type_t == 'LB':
-        #     Parser.tokens.selectNext()
-        # if Parser.tokens.actual.type_t == 'EOF':
-        #     return res
+
         return res
-        # else:
-        #     raise Exception('nao chegou no EOF')
+
 
 
 # $ python3 main.py test.vbs

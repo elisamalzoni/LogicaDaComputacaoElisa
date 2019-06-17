@@ -1,12 +1,23 @@
-Sub main()
-    ' bool ops
-    Dim bt as boolean
-    Dim bf as boolean
-    bt = True
-    bf = False
+Function fibonacci(n as integer) as integer
+    ' codigo do raphael costa
+    dim flag as boolean
+    
+    flag = false
+    if n = 0 then
+        fibonacci = 1
+        flag = true
+    end if
 
-    print bf and bt
-    print bf or bt
-    print not(not(bf))
-    print not((bt and bf) or bf)
-end sub
+    if n = 1 then 
+        fibonacci = 1
+        flag = true
+    end if
+
+    if flag = false then
+        fibonacci = fibonacci(n-2) + fibonacci(n-1)
+    end if
+
+End Function
+Sub Main()
+    print fibonacci(5)
+End Sub
