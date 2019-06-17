@@ -1,14 +1,12 @@
-Function Soma (x as Integer, y as Integer) as Integer
-    Dim a as Integer
-    a = x + y
-    Print a
-    Soma = a
-End Function
-Sub Main()
-    Dim a as Integer
-    Dim b as Integer
-    a = 3
-    b = Soma(a, 4)
-    Print a
-    Print b
-End Sub
+Sub main()
+    ' bool ops
+    Dim bt as boolean
+    Dim bf as boolean
+    bt = True
+    bf = False
+
+    print bf and bt
+    print bf or bt
+    print not(not(bf))
+    print not((bt and bf) or bf)
+end sub

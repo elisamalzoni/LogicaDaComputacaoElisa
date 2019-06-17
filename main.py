@@ -32,7 +32,7 @@ class SymbolTable():
             return self.table[variable_name]
         else:
             if self.ancestor == None:
-                raise Exception(f'Variavel nao setada', variable_name)
+                raise Exception(f'Variavel nao inicializada', variable_name)
             else:
                 return self.ancestor.getVariable(variable_name)
 
@@ -140,8 +140,8 @@ class VarDec(Node):
         self.children = children
 
     def Evaluate(self, st):
-        # st.declareVariable(self.children[0].value, self.children[1].Evaluate(st))
-        st.declareVariable(self.children[0], self.children[1].Evaluate(st))
+        st.declareVariable(self.children[0].value, self.children[1].Evaluate(st))
+        #st.declareVariable(self.children[0], self.children[1].Evaluate(st))
 
 class IdentifierNode(Node):
     def __init__(self, value, children):
@@ -242,7 +242,7 @@ class FuncCall(Node):
         self.children = children
 
     def Evaluate(self, st):
-        node = st.getVariable(self.value)
+        node = st.getVariable(self.value) ## get especial que busca na raiz
 
         ## criar st 
         ste = SymbolTable(st)
@@ -252,15 +252,13 @@ class FuncCall(Node):
             ste.declareVariable(self.value, node[0].children[0].Evaluate(st))
 
         
-        for i in range(1, len(self.children)-1):
+        for i in range(1, len(node[0].children)-1):
             node[0].children[i].Evaluate(ste)
-            ste.setVariable(node[0].children[i].children[0], self.children[i-1]).Evaluate(st)
+            ste.setVariable(node[0].children[i].children[0].value, self.children[i-1].Evaluate(st))
         node[0].children[len(node[0].children)-1].Evaluate(ste)
 
-        if st.getVariable(self.value)[0] == 'FUNCTION':
+        if st.getVariable(self.value)[1] == 'FUNCTION':
             return ste.getVariable(self.value)
-
-            
 
 class NoOp(Node):
     def __init__(self, value, children):
@@ -373,19 +371,23 @@ class Parser:
             if Parser.tokens.actual.type_t == 'OP':
                 Parser.tokens.selectNext()
                 listaargs = []
-                while Parser.tokens.actual.type_t != 'CP':
-                    Parser.tokens.selectNext()
-                    if Parser.tokens.actual.type_t != 'COMMA':
+                if Parser.tokens.actual.type_t != 'CP':
+                    listaargs.append(Parser.parseRelExpression())
+
+                    # Parser.tokens.selectNext()
+                    while Parser.tokens.actual.type_t == 'COMMA':
+                        Parser.tokens.selectNext()
                         listaargs.append(Parser.parseRelExpression())
+
                 if Parser.tokens.actual.type_t == 'CP':
                     Parser.tokens.selectNext()
-                node = FuncCall(function_name, listaargs) ## aqui usar lista args
-                # else:
-                #     raise Exception('Nao fechou parenteses')
+                    node = FuncCall(function_name, listaargs) ## aqui usar lista args
+                else:
+                    raise Exception('Nao fechou parenteses')
             else:
                 # node = IdentifierNode(Parser.tokens.actual.value, [])
                 node = IdentifierNode(function_name, [])
-                Parser.tokens.selectNext()
+                # Parser.tokens.selectNext()
 
         elif Parser.tokens.actual.type_t == 'OP':
             Parser.tokens.selectNext()
@@ -496,8 +498,8 @@ class Parser:
         elif Parser.tokens.actual.type_t == 'DIM':
             Parser.tokens.selectNext()
             if Parser.tokens.actual.type_t == 'IDENTIFIER':
-                # variable_name = IdentifierNode(Parser.tokens.actual.value,[])
-                variable_name = Parser.tokens.actual.value
+                variable_name = IdentifierNode(Parser.tokens.actual.value,[])
+                # variable_name = Parser.tokens.actual.value
                 Parser.tokens.selectNext()
                 if Parser.tokens.actual.type_t == 'AS':
                     Parser.tokens.selectNext()
@@ -521,11 +523,12 @@ class Parser:
                 
                 while Parser.tokens.actual.type_t != 'WEND':
                     node.children[1].append(Parser.parseStatement())
+                    Parser.tokens.selectNext()
 
                     if Parser.tokens.actual.type_t == 'LB':
                         Parser.tokens.selectNext()
-                    else:
-                        raise Exception('sem LB dentro do WHILE')
+                    # else:
+                    #     raise Exception('sem LB dentro do WHILE')
 
                 if Parser.tokens.actual.type_t == 'WEND':
                     Parser.tokens.selectNext()
@@ -544,21 +547,13 @@ class Parser:
                     Parser.tokens.selectNext()
                     node.children[1].append(Parser.parseStatement())
 
-                    # while Parser.tokens.actual.type_t != 'ELSE' and Parser.tokens.actual.type_t != 'END':
-
-                    #     if Parser.tokens.actual.type_t == 'LB':
-                    #         Parser.tokens.selectNext()
-                    #     else:
-                    #         raise Exception('sem LB dentro do IF')
-                    #     if Parser.tokens.actual.type_t != 'ELSE':
-                    #         node.children[1].append(Parser.parseStatement())
 
                     while Parser.tokens.actual.type_t != 'END':
                         if Parser.tokens.actual.type_t == 'ELSE':
                             node.children.append([])
                             Parser.tokens.selectNext()
                             while Parser.tokens.actual.type_t != 'END':
-                                if Parser.tokens.actual.type == 'lb':
+                                if Parser.tokens.actual.type_t == 'LB':
                                     Parser.tokens.selectNext()
                                 else:
                                     raise Exception('sem LB dentro do ELSE')
