@@ -285,12 +285,12 @@ class IfNode(Node):
     def Evaluate(self, st):
         self.children[0].Evaluate(st)
         CodeGen.write('CMP EBX, False')
-        CodeGen.write('JE ELSE_{}'.format(self.id))
+        CodeGen.write('JE ELSE_{}'.format(self.id))
         # if self.children[0].Evaluate(st)[0]:
         for c in self.children[1]:
             c.Evaluate(st)
         
-        CodeGen.write('ELSE_{}:'.format(self.id))
+        CodeGen.write('ELSE_{}:'.format(self.id))
         CodeGen.write('NOP')
         if len(self.children) == 3:
             for c in self.children[2]:
