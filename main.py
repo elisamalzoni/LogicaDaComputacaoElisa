@@ -793,12 +793,12 @@ class Parser:
 
 # $ python3 main.py test.vbs
 
-with open('test.vbs', 'r') as f:
-    exp = f.read() + '\n'
-
-# with open(sys.argv[1], 'r') as f:
+# with open('test.vbs', 'r') as f:
 #     exp = f.read() + '\n'
 
-print(exp)
+with open(sys.argv[1], 'r') as f:
+    exp = f.read() + '\n'
+
+# print(exp)
 st = SymbolTable(None)
 Parser.run(exp).Evaluate(st)
